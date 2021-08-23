@@ -375,6 +375,7 @@ class Parser:
             "og:title",
             "og:description",
             "og:image",
+            "og:locale"
         ]:
             unwanted_og_tag = soup.find("meta", attrs={"property": tag})
             if unwanted_og_tag:
@@ -389,8 +390,24 @@ class Parser:
             log.debug(f"Adding meta tag {str(tag)}")
             soup.head.append(tag)
 
+        
+        def add_og_meta_tag(propertie, content):
+            tag = soup.new_tag("meta")
+            tag.attrs["property"] = propertie
+            tag.attrs["content"] = content
+            soup.head.append(tag)
+        # add og for article
+        base_url_page = self.config.get("base_url", "")
+        slug_page_for_og = self.get_page_slug(url) if url != index else "index.html"
+        #page_title = self.get_page_slug(url, extension=False)
+        page_title = soup.find('title').string
+        add_og_meta_tag("og:url",base_url_page+slug_page_for_og)
+        add_og_meta_tag("og:type","article")
+        add_og_meta_tag("og:title",page_title)
+
         # process images & emojis
         cache_images = True
+        cover_image = False
         for img in soup.findAll("img"):
             if img.has_attr("src"):
                 if cache_images and not "data:image" in img["src"]:
@@ -404,6 +421,9 @@ class Parser:
                         # img_src = urllib.parse.unquote(img_src)
 
                     cached_image = self.cache_file(img_src)
+                    if img.has_attr("style") and "object-fit: cover" in img["style"]:
+                        cover_image = cached_image.name
+                        
                     img["src"] = cached_image
                 else:
                     if img["src"].startswith("/"):
@@ -423,6 +443,13 @@ class Parser:
                     spritesheet_url, str(cached_spritesheet_url)
                 )
                 img["style"] = style.cssText
+
+        if cover_image:
+            add_og_meta_tag("og:image",base_url_page+cover_image)
+
+
+
+
 
         # process stylesheets
         for link in soup.findAll("link", rel="stylesheet"):
@@ -548,7 +575,7 @@ class Parser:
                     for attr, value in element.items():
                         injected_tag[attr] = value
                         # if the value refers to a file, copy it to the dist folder
-                        if attr.lower() == "href" or attr.lower() == "src":
+                        if (attr.lower() == "href" or attr.lower() == "src") and section != "noscript" :
                             log.debug(f"Copying injected file '{value}'")
                             cached_custom_file = self.cache_file(
                                 (Path.cwd() / value.strip("/"))
@@ -561,6 +588,7 @@ class Parser:
 
         injects_custom_tags("head")
         injects_custom_tags("body")
+        injects_custom_tags("noscript")
 
         # inject loconotion's custom stylesheet and script
         loconotion_custom_css = self.cache_file(Path("bundles/loconotion.css"))

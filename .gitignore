@@ -147,3 +147,10 @@ dmypy.json
 .temp/
 .logs/
 .idea/
+
+chromedriver
+blog-eol.toml
+blog-zenrise.toml
+envloconotion
+resources
+clean.sh
